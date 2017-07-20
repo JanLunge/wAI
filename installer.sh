@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 # ===  to install
 # http://ow.ly/pQpl30dMcuJ
 checklist=( 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 )
