@@ -1,4 +1,6 @@
 #!/bin/bash
+# ===  to install
+# http://ow.ly/pQpl30dMcuJ
 checklist=( 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 )
 # COLORS {{{
     Bold=$(tput bold)
@@ -90,13 +92,7 @@ contains_element() { #{{{
   #check if an element exist in a string
   for e in "${@:2}"; do [[ $e == $1 ]] && break; done;
 } #}}}
-is_package_installed() { #{{{
-  #check if a package is already installed
-  for PKG in $1; do
-    pacman -Q $PKG &> /dev/null && return 0;
-  done
-  return 1
-} #}}}
+
 checkbox() { #{{{
   #display [X] or [ ]
   [[ "$1" -eq 1 ]] && echo -e "${BBlue}[${Reset}${Bold}X${BBlue}]${Reset}" || echo -e "${BBlue}[ ${BBlue}]${Reset}";
@@ -123,6 +119,45 @@ mainmenu_item() { #{{{
   echo "$(checkbox "$1") ${Bold}$2${Reset} ${state}"
 } #}}}
 
+is_package_installed() { #{{{
+  #check if a package is already installed
+  for PKG in $1; do
+    pacman -Q $PKG &> /dev/null && return 0;
+  done
+  return 1
+} #}}}
+
+package_install() { #{{{
+    #install packages using pacman
+    if [[ $AUTOMATIC_MODE -eq 1 || $VERBOSE_MODE -eq 0 ]]; then
+      for PKG in ${1}; do
+        local _pkg_repo=`pacman -Sp --print-format %r ${PKG} | uniq | sed '1!d'`
+        case $_pkg_repo in
+          "core")
+            _pkg_repo="${BRed}${_pkg_repo}${Reset}"
+            ;;
+          "extra")
+            _pkg_repo="${BYellow}${_pkg_repo}${Reset}"
+            ;;
+          "community")
+            _pkg_repo="${BGreen}${_pkg_repo}${Reset}"
+            ;;
+          "multilib")
+            _pkg_repo="${BCyan}${_pkg_repo}${Reset}"
+            ;;
+        esac
+        if ! is_package_installed "${PKG}" ; then
+          ncecho " ${BBlue}[${Reset}${Bold}X${BBlue}]${Reset} Installing (${_pkg_repo}) ${Bold}${PKG}${Reset} "
+          pacman -S --noconfirm --needed ${PKG} >>"$LOG" 2>&1 &
+          pid=$!;progress $pid
+        else
+          cecho " ${BBlue}[${Reset}${Bold}X${BBlue}]${Reset} Installing (${_pkg_repo}) ${Bold}${PKG}${Reset} exists "
+        fi
+      done
+    else
+      pacman -S --needed ${1}
+    fi
+  } #}}}
 
 #SELECT KEYMAP {{{
 select_keymap(){
@@ -141,11 +176,173 @@ select_keymap(){
     done
 }
 
+#DEFAULT EDITOR {{{
+select_editor(){
+  print_title "DEFAULT EDITOR"
+  editors_list=("nano" "vim" "neovim" "emacs" "vi" "zile");
+  PS3="$prompt1"
+  echo -e "Select editor\n"
+  select EDITOR in "${editors_list[@]}"; do
+    if contains_element "$EDITOR" "${editors_list[@]}"; then
+      package_install "$EDITOR"
+      break
+    else
+      invalid_option
+    fi
+  done
+}
+#}}}
+
+#MIRRORLIST {{{
+configure_mirrorlist(){
+  local countries_code=("AU" "AT" "BY" "BE" "BR" "BG" "CA" "CL" "CN" "CO" "CZ" "DK" "EE" "FI" "FR" "DE" "GR" "HK" "HU" "ID" "IN" "IE" "IL" "IT" "JP" "KZ" "KR" "LV" "LU" "MK" "NL" "NC" "NZ" "NO" "PL" "PT" "RO" "RU" "RS" "SG" "SK" "ZA" "ES" "LK" "SE" "CH" "TW" "TR" "UA" "GB" "US" "UZ" "VN")
+  local countries_name=("Australia" "Austria" "Belarus" "Belgium" "Brazil" "Bulgaria" "Canada" "Chile" "China" "Colombia" "Czech Republic" "Denmark" "Estonia" "Finland" "France" "Germany" "Greece" "Hong Kong" "Hungary" "Indonesia" "India" "Ireland" "Israel" "Italy" "Japan" "Kazakhstan" "Korea" "Latvia" "Luxembourg" "Macedonia" "Netherlands" "New Caledonia" "New Zealand" "Norway" "Poland" "Portugal" "Romania" "Russia" "Serbia" "Singapore" "Slovakia" "South Africa" "Spain" "Sri Lanka" "Sweden" "Switzerland" "Taiwan" "Turkey" "Ukraine" "United Kingdom" "United States" "Uzbekistan" "Viet Nam")
+  country_list(){
+    #`reflector --list-countries | sed 's/[0-9]//g' | sed 's/^/"/g' | sed 's/,.*//g' | sed 's/ *$//g'  | sed 's/$/"/g' | sed -e :a -e '$!N; s/\n/ /; ta'`
+    PS3="$prompt1"
+    echo "Select your country:"
+    select country_name in "${countries_name[@]}"; do
+      if contains_element "$country_name" "${countries_name[@]}"; then
+        country_code=${countries_code[$(( $REPLY - 1 ))]}
+        break
+      else
+        invalid_option
+      fi
+    done
+  }
+  print_title "MIRRORLIST - https://wiki.archlinux.org/index.php/Mirrors"
+  print_info "This option is a guide to selecting and configuring your mirrors, and a listing of current available mirrors."
+  OPTION=n
+  while [[ $OPTION != y ]]; do
+    country_list
+    read_input_text "Confirm country: $country_name"
+  done
+
+  url="https://www.archlinux.org/mirrorlist/?country=${country_code}&use_mirror_status=on"
+
+  tmpfile=$(mktemp --suffix=-mirrorlist)
+
+  # Get latest mirror list and save to tmpfile
+  curl -so ${tmpfile} ${url}
+  sed -i 's/^#Server/Server/g' ${tmpfile}
+
+  # Backup and replace current mirrorlist file (if new file is non-zero)
+  if [[ -s ${tmpfile} ]]; then
+   { echo " Backing up the original mirrorlist..."
+     mv -i /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.orig; } &&
+   { echo " Rotating the new list into place..."
+     mv -i ${tmpfile} /etc/pacman.d/mirrorlist; }
+  else
+    echo " Unable to update, could not download list."
+  fi
+  # better repo should go first
+  cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.tmp
+  rankmirrors /etc/pacman.d/mirrorlist.tmp > /etc/pacman.d/mirrorlist
+  rm /etc/pacman.d/mirrorlist.tmp
+  # allow global read access (required for non-root yaourt execution)
+  chmod +r /etc/pacman.d/mirrorlist
+  $EDITOR /etc/pacman.d/mirrorlist
+}
+#}}}
+
+#UMOUNT PARTITIONS {{{
+umount_partitions(){
+  mounted_partitions=(`lsblk | grep ${MOUNTPOINT} | awk '{print $7}' | sort -r`)
+  swapoff -a
+  for i in ${mounted_partitions[@]}; do
+    umount $i
+  done
+}
+#}}}
+
+#SELECT DEVICE {{{
+select_device(){
+  devices_list=(`lsblk -d | awk '{print "/dev/" $1}' | grep 'sd\|hd\|vd\|nvme\|mmcblk'`);
+  PS3="$prompt1"
+  echo -e "Attached Devices:\n"
+  lsblk -lnp -I 2,3,8,9,22,34,56,57,58,65,66,67,68,69,70,71,72,91,128,129,130,131,132,133,134,135 | awk '{print $1,$4,$6,$7}'| column -t
+  echo -e "\n"
+  echo -e "Select device to partition:\n"
+  select device in "${devices_list[@]}"; do
+    if contains_element "${device}" "${devices_list[@]}"; then
+      break
+    else
+      invalid_option
+    fi
+  done
+  BOOT_MOUNTPOINT=$device
+}
+#}}}
+
+#CREATE PARTITION SCHEME {{{
+create_partition_scheme(){
+  LUKS=0
+  LVM=0
+  print_title "https://wiki.archlinux.org/index.php/Partitioning"
+  print_info "Partitioning a hard drive allows one to logically divide the available space into sections that can be accessed independently of one another."
+  print_warning "Maintain Current does not work with LUKS"
+  partition_layouts=("Default" "LVM" "LVM+LUKS" "Maintain Current")
+  PS3="$prompt1"
+  echo -e "Select partition scheme:"
+  select OPT in "${partition_layouts[@]}"; do
+    partition_layout=$OPT
+    case "$REPLY" in
+      1)
+        create_partition
+        ;;
+      2)
+        create_partition
+        setup_lvm
+        ;;
+      3)
+        create_partition
+        setup_luks
+        setup_lvm
+        ;;
+      4)
+        modprobe dm-mod
+        vgscan &> /dev/null
+        vgchange -ay &> /dev/null
+        ;;
+      *)
+        invalid_option
+        ;;
+    esac
+    [[ -n $OPT ]] && break
+  done
+}
+#}}}
+
+#SETUP PARTITION{{{
+create_partition(){
+  apps_list=("cfdisk" "cgdisk" "fdisk" "gdisk" "parted");
+  print_info "cfdisk -> delete any partitions -> create one with linux -> write -> quit"
+  PS3="$prompt1"
+  echo "Select partition program:"
+  select OPT in "${apps_list[@]}"; do
+    if contains_element "$OPT" "${apps_list[@]}"; then
+      select_device
+      case $OPT in
+        parted)
+          parted -a opt ${device}
+          ;;
+        *)
+          $OPT ${device}
+          ;;
+      esac
+      break
+    else
+      invalid_option
+    fi
+  done
+}
+#}}}
+
 print_title "https://wiki.archlinux.org/index.php/Arch_Install_Scripts"
 print_info "The Arch Install Scripts are a set of Bash scripts that simplify Arch installation."
 while true
 do
-  print_title "ARCHLINUX ULTIMATE INSTALL - https://github.com/helmuthdu/aui"
+  print_title "ARCHLINUX ULTIMATE INSTALL - https://github.com/wlard/wAI"
   echo " 1) $(mainmenu_item "${checklist[1]}"  "Select Keymap"            "${KEYMAP}" )"
   echo " 2) $(mainmenu_item "${checklist[2]}"  "Select Editor"            "${EDITOR}" )"
   echo " 3) $(mainmenu_item "${checklist[3]}"  "Configure Mirrorlist"     "${country_name} (${country_code})" )"
