@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 # ===  to install
 # http://ow.ly/pQpl30dMcuJ
 checklist=( 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 )
@@ -119,6 +119,12 @@ mainmenu_item() { #{{{
   echo "$(checkbox "$1") ${Bold}$2${Reset} ${state}"
 } #}}}
 
+invalid_option() { #{{{
+   print_line
+   echo "Invalid option. Try another one."
+   pause_function
+ } #}}}
+
 is_package_installed() { #{{{
   #check if a package is already installed
   for PKG in $1; do
@@ -175,13 +181,14 @@ select_keymap(){
     fi
     done
 }
+#}}}
 
 #DEFAULT EDITOR {{{
 select_editor(){
   print_title "DEFAULT EDITOR"
   editors_list=("nano" "vim" "neovim" "emacs" "vi" "zile");
   PS3="$prompt1"
-  echo -e "Select editor\n"
+  echo "Select editor\n"
   select EDITOR in "${editors_list[@]}"; do
     if contains_element "$EDITOR" "${editors_list[@]}"; then
       package_install "$EDITOR"
@@ -280,8 +287,7 @@ create_partition_scheme(){
   LVM=0
   print_title "https://wiki.archlinux.org/index.php/Partitioning"
   print_info "Partitioning a hard drive allows one to logically divide the available space into sections that can be accessed independently of one another."
-  print_warning "Maintain Current does not work with LUKS"
-  partition_layouts=("Default" "LVM" "LVM+LUKS" "Maintain Current")
+  partition_layouts=("Default" "Maintain Current")
   PS3="$prompt1"
   echo -e "Select partition scheme:"
   select OPT in "${partition_layouts[@]}"; do
@@ -291,15 +297,6 @@ create_partition_scheme(){
         create_partition
         ;;
       2)
-        create_partition
-        setup_lvm
-        ;;
-      3)
-        create_partition
-        setup_luks
-        setup_lvm
-        ;;
-      4)
         modprobe dm-mod
         vgscan &> /dev/null
         vgchange -ay &> /dev/null
@@ -335,6 +332,21 @@ create_partition(){
       invalid_option
     fi
   done
+}
+#}}}
+
+#FINISH {{{
+finish(){
+  print_title "INSTALL COMPLETED"
+  #COPY AUI TO ROOT FOLDER IN THE NEW SYSTEM
+  print_warning "\nA copy of the wAI will be placed in /root directory of your new system"
+  cp -R `pwd` ${MOUNTPOINT}/root
+  read_input_text "Reboot system"
+  if [[ $OPTION == y ]]; then
+    umount_partitions
+    reboot
+  fi
+  exit 0
 }
 #}}}
 
