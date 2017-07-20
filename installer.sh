@@ -64,7 +64,12 @@ checklist=( 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 )
     done
     OPTIONS=("${packages[@]}")
   } #}}}
-
+  pause_function() { #{{{
+    print_line
+    if [[ $AUTOMATIC_MODE -eq 0 ]]; then
+      read -e -sn 1 -p "Press enter to continue..."
+    fi
+  } #}}}
 print_line() { #{{{
   printf "%$(tput cols)s\n"|tr ' ' '-'
 } #}}}
@@ -78,15 +83,15 @@ print_title() { #{{{
 print_info() { #{{{
   #Console width number
   T_COLS=`tput cols`
-  echo "${Bold}$1${Reset}\n" | fold -sw $(( $T_COLS - 18 ))
+  echo "${Bold}$1${Reset}" | fold -sw $(( $T_COLS - 18 ))
 } #}}}
 print_warning() { #{{{
   T_COLS=`tput cols`
-  echo "${BYellow}$1${Reset}\n" | fold -sw $(( $T_COLS - 1 ))
+  echo "${BYellow}$1${Reset}" | fold -sw $(( $T_COLS - 1 ))
 } #}}}
 print_danger() { #{{{
   T_COLS=`tput cols`
-  echo "${BRed}$1${Reset}\n" | fold -sw $(( $T_COLS - 1 ))
+  echo "${BRed}$1${Reset}" | fold -sw $(( $T_COLS - 1 ))
 } #}}}
 contains_element() { #{{{
   #check if an element exist in a string
@@ -313,7 +318,7 @@ create_partition_scheme(){
 #SETUP PARTITION{{{
 create_partition(){
   apps_list=("cfdisk" "cgdisk" "fdisk" "gdisk" "parted");
-  print_info "cfdisk -> delete any partitions -> create one with linux -> write -> quit"
+  print_info "cfdisk -> GPT -> delete any partitions -> create one with linux -> write -> quit"
   PS3="$prompt1"
   echo "Select partition program:"
   select OPT in "${apps_list[@]}"; do
@@ -335,11 +340,43 @@ create_partition(){
 }
 #}}}
 
+#SELECT|FORMAT PARTITIONS {{{
+format_partitions(){
+  print_title "https://wiki.archlinux.org/index.php/File_Systems"
+  print_info "This step will select and format the selected partition where archlinux will be installed"
+  print_danger "All data on the partition will be LOST."
+
+  echo ${device}
+  pause_function
+  #choose wich partition to format
+  #choose variant ext4 or btrfs
+  mkfs.btrfs -L "Arch Linux" /dev/sda1
+
+  mkdir /mnt/btrfs-root
+  mount -o defaults,relatime,discard,ssd,nodev,nosuid /dev/sda1 /mnt/btrfs-root
+
+  mkdir -p /mnt/btrfs-root/__snapshot
+  mkdir -p /mnt/btrfs-root/__current
+  btrfs subvolume create /mnt/btrfs-root/__current/root
+  btrfs subvolume create /mnt/btrfs-root/__current/host_name
+
+  mkdir -p /mnt/btrfs-current
+  mount -o defaults,relatime,discard,ssd,nodev,subvol=__current/root /dev/sda1 /mnt/btrfs-current
+  mkdir -p /mnt/btrfs-current/host_name
+
+  mount -o defaults,relatime,discard,ssd,nodev,nosuid,subvol=__current/home /dev/sda1 /mnt/btrfs-current/home
+
+
+
+}
+#}}}
+
+
 #FINISH {{{
 finish(){
   print_title "INSTALL COMPLETED"
   #COPY AUI TO ROOT FOLDER IN THE NEW SYSTEM
-  print_warning "\nA copy of the wAI will be placed in /root directory of your new system"
+  print_warning "A copy of the wAI will be placed in /root directory of your new system"
   cp -R `pwd` ${MOUNTPOINT}/root
   read_input_text "Reboot system"
   if [[ $OPTION == y ]]; then
