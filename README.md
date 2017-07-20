@@ -1,0 +1,2 @@
+# wAI
+Personal Arch Installer
