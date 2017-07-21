@@ -253,6 +253,7 @@ configure_mirrorlist(){
   rm /etc/pacman.d/mirrorlist.tmp
   # allow global read access (required for non-root yaourt execution)
   chmod +r /etc/pacman.d/mirrorlist
+  #TODO: ask if should open editor
   $EDITOR /etc/pacman.d/mirrorlist
 }
 #}}}
@@ -359,11 +360,11 @@ format_partitions(){
   mkdir -p /mnt/btrfs-root/__snapshot
   mkdir -p /mnt/btrfs-root/__current
   btrfs subvolume create /mnt/btrfs-root/__current/root
-  btrfs subvolume create /mnt/btrfs-root/__current/host_name
+  btrfs subvolume create /mnt/btrfs-root/__current/home
 
   mkdir -p /mnt/btrfs-current
   mount -o defaults,relatime,discard,ssd,nodev,subvol=__current/root $partition /mnt/btrfs-current
-  mkdir -p /mnt/btrfs-current/host_name
+  mkdir -p /mnt/btrfs-current/home
 
   mount -o defaults,relatime,discard,ssd,nodev,nosuid,subvol=__current/home $partition /mnt/btrfs-current/home
 
