@@ -346,14 +346,15 @@ format_partitions(){
   print_info "This step will select and format the selected partition where archlinux will be installed"
   print_danger "All data on the partition will be LOST."
 
-  echo ${device}
+  echo ${device}"1"
+  partition=${device}"1"
   pause_function
   #choose wich partition to format
   #choose variant ext4 or btrfs
-  mkfs.btrfs -L "Arch Linux" /dev/sda1
+  mkfs.btrfs -L "Arch Linux" $partition
 
   mkdir /mnt/btrfs-root
-  mount -o defaults,relatime,discard,ssd,nodev,nosuid /dev/sda1 /mnt/btrfs-root
+  mount -o defaults,relatime,discard,ssd,nodev,nosuid $partition /mnt/btrfs-root
 
   mkdir -p /mnt/btrfs-root/__snapshot
   mkdir -p /mnt/btrfs-root/__current
@@ -361,10 +362,10 @@ format_partitions(){
   btrfs subvolume create /mnt/btrfs-root/__current/host_name
 
   mkdir -p /mnt/btrfs-current
-  mount -o defaults,relatime,discard,ssd,nodev,subvol=__current/root /dev/sda1 /mnt/btrfs-current
+  mount -o defaults,relatime,discard,ssd,nodev,subvol=__current/root $partition /mnt/btrfs-current
   mkdir -p /mnt/btrfs-current/host_name
 
-  mount -o defaults,relatime,discard,ssd,nodev,nosuid,subvol=__current/home /dev/sda1 /mnt/btrfs-current/home
+  mount -o defaults,relatime,discard,ssd,nodev,nosuid,subvol=__current/home $partition /mnt/btrfs-current/home
 
 
 
