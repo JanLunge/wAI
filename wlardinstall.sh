@@ -71,6 +71,6 @@ function configsystem() {
 }
 export EDITOR=vim
 timedatectl set-ntp true
-mirros()
-createdrive()
-baseinstall()
+mirros
+createdrive
+baseinstall
