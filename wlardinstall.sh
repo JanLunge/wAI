@@ -1,4 +1,7 @@
 #!/bin/bash
+arch_chroot() { #{{{
+    arch-chroot $MOUNTPOINT /bin/bash -c "${1}"
+  }
 function mirrors() {
   url="https://www.archlinux.org/mirrorlist/?country=DE&use_mirror_status=on"
   tmpfile=$(mktemp --suffix=-mirrorlist)
@@ -53,7 +56,7 @@ function baseinstall() {
    fi
    echo "KEYMAP=US" > $mountpoint/etc/vconsole.conf
    #genfstab -L -p mountpoint >> mountpoint/etc/fstab
-   genfstab -U /mnt >> /mnt/etc/fstab
+   genfstab -U /mnt >> $mountpoint/etc/fstab
 
 }
 function configsystem() {
