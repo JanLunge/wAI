@@ -369,7 +369,6 @@ format_partitions(){
   mount -o defaults,relatime,discard,ssd,nodev,nosuid,subvol=__current/home $partition /mnt/btrfs-current/home
 
 
-
 }
 #}}}
 
@@ -378,8 +377,8 @@ format_partitions(){
 finish(){
   print_title "INSTALL COMPLETED"
   #COPY AUI TO ROOT FOLDER IN THE NEW SYSTEM
-  print_warning "A copy of the wAI will be placed in /root directory of your new system"
-  cp -R `pwd` ${MOUNTPOINT}/root
+  #print_warning "A copy of the wAI will be placed in /root directory of your new system"
+  #cp -R `pwd` ${MOUNTPOINT}/root
   read_input_text "Reboot system"
   if [[ $OPTION == y ]]; then
     umount_partitions
