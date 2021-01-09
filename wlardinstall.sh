@@ -49,7 +49,8 @@ function createdrive() {
 }
 function baseinstall() {
   mountpoint=/mnt/btrfs-current
-  pacstrap $mountpoint base base-devel parted btrfs-progs f2fs-tools ntp net-tools
+  pacstrap $mountpoint base base-devel parted btrfs-progs f2fs-tools ntp net-tools vim
+  # everything in chroot now
   WIRED_DEV=`ip link | grep "ens\|eno\|enp" | awk '{print $2}'| sed 's/://' | sed '1!d'`
    if [[ -n $WIRED_DEV ]]; then
      arch_chroot "systemctl enable dhcpcd@${WIRED_DEV}.service"
